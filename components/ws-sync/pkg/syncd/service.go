@@ -144,13 +144,11 @@ func (s *WorkspaceService) InitWorkspace(ctx context.Context, req *api.InitWorks
 	log.Info("InitWorkspace called")
 
 	var (
-		wsloc    string
-		upperdir string
+		wsloc         string
+		upperdir      string
+		wscontainerID cri.ContainerID
 	)
 	if req.FullWorkspaceBackup {
-		if s.cric == nil {
-			return nil, status.Errorf(codes.FailedPrecondition, "full workspace backup is not available - not connected to container runtime")
-		}
 		var mf csapi.WorkspaceContentManifest
 		if len(req.ContentManifest) == 0 {
 			return nil, status.Errorf(codes.InvalidArgument, "content manifest is required")
@@ -160,24 +158,23 @@ func (s *WorkspaceService) InitWorkspace(ctx context.Context, req *api.InitWorks
 			return nil, status.Errorf(codes.InvalidArgument, "invalid content manifest: %s", err.Error())
 		}
 
-		wscont, err := s.cric.WaitForContainer(ctx, req.Id)
+		if s.cric == nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "not connected to container runtime")
+		}
+		wscontainerID, err = s.cric.WaitForContainer(ctx, req.Id)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "cannot find workspace container: %s", err.Error())
 		}
-		upperdir, err = s.cric.ContainerUpperdir(ctx, wscont)
+		upperdir, err = s.cric.ContainerUpperdir(ctx, wscontainerID)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "cannot find workspace upperdir: %s", err.Error())
 		}
-		log.WithField("cid", wscont).WithField("upperdir", upperdir).Debug("workspace container found")
+		log.WithField("cid", wscontainerID).WithField("upperdir", upperdir).Debug("workspace container found")
 
 		// This this point the workspace content is present and initialized because it was part of the container image.
 		// There is no need to wait for the ready file here.
 	} else {
 		wsloc = filepath.Join(s.store.Location, req.Id)
-
-		// This task/call cannot be canceled. Once it's started it's brought to a conclusion, independent of the caller disconnecting
-		// or not. To achieve this we need to wrap the context in something that alters the cancelation behaviour.
-		ctx = &cannotCancelContext{Delegate: ctx}
 	}
 
 	workspace, err := s.store.NewWorkspace(ctx, req.Id, wsloc, s.creator(req, upperdir))
@@ -194,7 +191,39 @@ func (s *WorkspaceService) InitWorkspace(ctx context.Context, req *api.InitWorks
 		return nil, status.Error(codes.Internal, "workspace has no remote storage")
 	}
 
+	if req.ShiftfsMarkMount {
+		// we're asked to create the shiftfs mark mount, for which we need to find the container's
+		// rootfs directory. If the workspace is an FWB workspace, we'll have waited for the container
+		// already, otherwise we'll need to do that here
+		if !req.FullWorkspaceBackup {
+			if s.cric == nil {
+				return nil, status.Errorf(codes.FailedPrecondition, "not connected to container runtime")
+			}
+			wscontainerID, err = s.cric.WaitForContainer(ctx, req.Id)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "cannot find workspace container: %s", err.Error())
+			}
+		}
+
+		rootfs, err := s.cric.ContainerRootfs(ctx, wscontainerID)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "cannot find workspace rootfs: %s", err.Error())
+		}
+		log.WithField("cid", wscontainerID).WithField("rootfs", rootfs).Debug("found workspace container rootfs")
+
+		markDst := filepath.Join(s.store.Location, req.Id+"-mark")
+		_ = os.MkdirAll(markDst, 0644)
+		err = syscall.Mount(rootfs, markDst, "shiftfs", 0, "mark")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "cannot create shiftfs mark: %s", err.Error())
+		}
+	}
+
 	if !req.FullWorkspaceBackup {
+		// This task/call cannot be canceled. Once it's started it's brought to a conclusion, independent of the caller disconnecting
+		// or not. To achieve this we need to wrap the context in something that alters the cancelation behaviour.
+		ctx = &cannotCancelContext{Delegate: ctx}
+
 		// Initialize workspace.
 		// FWB workspaces initialize without the help of ws-sync, but using their supervisor or the registry-facade.
 		initializer, err := wsinit.NewFromRequest(ctx, workspace.Location, rs, req.Initializer)

@@ -29,6 +29,13 @@ type ContainerRuntimeInterface interface {
 	// If the container has no upperdir ErrNoUpperdir is returned.
 	ContainerUpperdir(ctx context.Context, id ContainerID) (loc string, err error)
 
+	// ContainerUpperdir finds the workspace container's rootfs. The location returned here has to be accessible from
+	// the calling process (i.e. if the calling process runs in a container itself, the returned location has to be accessible from
+	// within that container).
+	//
+	// If the container, or its rootfs, is not found ErrNotFound is returned.
+	ContainerRootfs(ctx context.Context, id ContainerID) (loc string, err error)
+
 	// ContainerCGroupPath finds the container's cgroup path on the node. Note: this path is not the complete path to the container's cgroup,
 	// but merely the suffix. To make it a complete path you need to add the cgroup base path (e.g. /sys/fs/cgroup) and the type of cgroup
 	// you care for, e.g. cpu: filepath.Join("/sys/fs/cgroup", "cpu", cgroupPath).

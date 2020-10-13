@@ -252,7 +252,8 @@ proto.wssync.InitWorkspaceRequest.toObject = function(includeInstance, msg) {
     metadata: (f = msg.getMetadata()) && proto.wssync.WorkspaceMetadata.toObject(includeInstance, f),
     initializer: (f = msg.getInitializer()) && content$service$api_initializer_pb.WorkspaceInitializer.toObject(includeInstance, f),
     fullWorkspaceBackup: jspb.Message.getFieldWithDefault(msg, 4, false),
-    contentManifest: msg.getContentManifest_asB64()
+    contentManifest: msg.getContentManifest_asB64(),
+    shiftfsMarkMount: jspb.Message.getFieldWithDefault(msg, 6, false)
   };
 
   if (includeInstance) {
@@ -310,6 +311,10 @@ proto.wssync.InitWorkspaceRequest.deserializeBinaryFromReader = function(msg, re
     case 5:
       var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setContentManifest(value);
+      break;
+    case 6:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setShiftfsMarkMount(value);
       break;
     default:
       reader.skipField();
@@ -374,6 +379,13 @@ proto.wssync.InitWorkspaceRequest.serializeBinaryToWriter = function(message, wr
   if (f.length > 0) {
     writer.writeBytes(
       5,
+      f
+    );
+  }
+  f = message.getShiftfsMarkMount();
+  if (f) {
+    writer.writeBool(
+      6,
       f
     );
   }
@@ -514,6 +526,23 @@ proto.wssync.InitWorkspaceRequest.prototype.getContentManifest_asU8 = function()
 /** @param {!(string|Uint8Array)} value */
 proto.wssync.InitWorkspaceRequest.prototype.setContentManifest = function(value) {
   jspb.Message.setProto3BytesField(this, 5, value);
+};
+
+
+/**
+ * optional bool shiftfs_mark_mount = 6;
+ * Note that Boolean fields may be set to 0/1 when serialized from a Java server.
+ * You should avoid comparisons like {@code val === true/false} in those cases.
+ * @return {boolean}
+ */
+proto.wssync.InitWorkspaceRequest.prototype.getShiftfsMarkMount = function() {
+  return /** @type {boolean} */ (jspb.Message.getFieldWithDefault(this, 6, false));
+};
+
+
+/** @param {boolean} value */
+proto.wssync.InitWorkspaceRequest.prototype.setShiftfsMarkMount = function(value) {
+  jspb.Message.setProto3BooleanField(this, 6, value);
 };
 
 

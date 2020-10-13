@@ -80,11 +80,11 @@ function deserialize_wsbs_PauseTheiaResponse(buffer_arg) {
 
 var InWorkspaceHelperService = exports.InWorkspaceHelperService = {
   // BackupCanary can prepare workspace content backups. The canary is supposed to be triggered
-  // when the workspace is about to shut down, e.g. using the PreStop hook of a Kubernetes container.
-  //
-  // Note that the request/response flow is inverted here, as it's the server (supervisor) which requests a backup
-  // from the client (ws-sync).
-  backupCanary: {
+// when the workspace is about to shut down, e.g. using the PreStop hook of a Kubernetes container.
+//
+// Note that the request/response flow is inverted here, as it's the server (supervisor) which requests a backup
+// from the client (ws-sync).
+backupCanary: {
     path: '/wsbs.InWorkspaceHelper/BackupCanary',
     requestStream: true,
     responseStream: true,
@@ -96,9 +96,9 @@ var InWorkspaceHelperService = exports.InWorkspaceHelperService = {
     responseDeserialize: deserialize_wsbs_BackupCanaryRequest,
   },
   // PauseTheia can pause the Theia process and all its children. As long as the request stream
-  // is held Theia will be paused.
-  // This is a stop-the-world mechanism for preventing concurrent modification during backup.
-  pauseTheia: {
+// is held Theia will be paused.
+// This is a stop-the-world mechanism for preventing concurrent modification during backup.
+pauseTheia: {
     path: '/wsbs.InWorkspaceHelper/PauseTheia',
     requestStream: true,
     responseStream: false,

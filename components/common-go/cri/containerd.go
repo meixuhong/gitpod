@@ -85,8 +85,11 @@ type containerInfo struct {
 	InstanceID  string
 	OwnerID     string
 	ContainerID string
+	Snapshotter string
+	SnapshotKey string
 	PodName     string
 	SeenTask    bool
+	Rootfs      string
 	UpperDir    string
 	CGroupPath  string
 	PID         uint32
@@ -206,6 +209,12 @@ func (s *ContainerdCRI) handleNewContainer(c containers.Container) {
 			OwnerID:     c.Labels[wsk8s.OwnerLabel],
 			WorkspaceID: c.Labels[wsk8s.MetaIDLabel],
 			PodName:     podName,
+			SnapshotKey: c.SnapshotKey,
+			Snapshotter: c.Snapshotter,
+		}
+		if info.Snapshotter == "" {
+			// c.Snapshotter is optional
+			info.Snapshotter = "overlayfs"
 		}
 
 		// Beware: the containerID at this point is NOT the same as the ID of the actual workspace container.
@@ -261,7 +270,7 @@ func (s *ContainerdCRI) handleNewTask(cid string, rootfs []*types.Mount, pid uin
 
 	if rootfs == nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		mnts, err := s.Client.SnapshotService("overlayfs").Mounts(ctx, cid)
+		mnts, err := s.Client.SnapshotService(info.Snapshotter).Mounts(ctx, info.SnapshotKey)
 		cancel()
 		if err != nil {
 			log.WithError(err).Warnf("cannot get mounts for container %v", cid)
@@ -276,7 +285,7 @@ func (s *ContainerdCRI) handleNewTask(cid string, rootfs []*types.Mount, pid uin
 	}
 
 	for _, rfs := range rootfs {
-		if rfs.Type != "overlay" {
+		if rfs.Type != info.Snapshotter {
 			continue
 		}
 		for _, opt := range rfs.Options {
@@ -294,7 +303,7 @@ func (s *ContainerdCRI) handleNewTask(cid string, rootfs []*types.Mount, pid uin
 	info.PID = pid
 	info.SeenTask = true
 
-	log.WithFields(log.OWI(info.OwnerID, info.WorkspaceID, info.InstanceID)).WithField("cid", cid).WithField("upperdir", info.UpperDir).Debug("found task")
+	log.WithFields(log.OWI(info.OwnerID, info.WorkspaceID, info.InstanceID)).WithField("cid", cid).WithField("upperdir", info.UpperDir).WithField("rootfs", info.Rootfs).Debug("found task")
 	s.cond.Broadcast()
 }
 
@@ -398,6 +407,22 @@ func (s *ContainerdCRI) ContainerUpperdir(ctx context.Context, id ContainerID) (
 	}
 
 	return s.Mapping.Translate(info.UpperDir)
+}
+
+// ContainerRootfs finds the workspace container's rootfs.
+func (s *ContainerdCRI) ContainerRootfs(ctx context.Context, id ContainerID) (loc string, err error) {
+	info, ok := s.cntIdx[string(id)]
+	if !ok {
+		return "", ErrNotFound
+	}
+
+	// TODO(cw): make this less brittle
+	// We can't get the rootfs location on the node from containerd somehow.
+	// As a workaround we'll look at the node's mount table using the snapshotter key.
+	// This feels brittle and we should keep looking for a better way.
+	return s.Mounts.GetMountpoint(func(mountPoint string) bool {
+		return strings.Contains(mountPoint, info.SnapshotKey)
+	})
 }
 
 // ContainerCGroupPath finds the container's cgroup path suffix

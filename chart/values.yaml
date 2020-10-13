@@ -375,6 +375,7 @@ components:
       enabled: true
       nodeRoots: 
       - /var/lib
+      - /run/containerd/io.containerd.runtime.v1.linux/k8s.io
       runtime: containerd
       containerd:
         socket: /run/containerd/containerd.sock
