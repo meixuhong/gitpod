@@ -11,15 +11,15 @@ import (
 	"github.com/gitpod-io/gitpod/common-go/cri"
 	wsk8s "github.com/gitpod-io/gitpod/common-go/kubernetes"
 	"github.com/gitpod-io/gitpod/common-go/log"
-	"github.com/gitpod-io/gitpod/ws-manager-node/pkg/dispatch"
+	"github.com/gitpod-io/gitpod/ws-daemon/pkg/dispatch"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/xerrors"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// DispatchListenerConfig configures the containerd resource governer dispatch
-type DispatchListenerConfig struct {
+// Config configures the containerd resource governer dispatch
+type Config struct {
 	CPUBuckets        []Bucket            `json:"cpuBuckets"`
 	ControlPeriod     string              `json:"controlPeriod"`
 	SamplingPeriod    string              `json:"samplingPeriod"`
@@ -28,7 +28,7 @@ type DispatchListenerConfig struct {
 }
 
 // NewDispatchListener creates a new resource governer dispatch listener
-func NewDispatchListener(cfg *DispatchListenerConfig, prom prometheus.Registerer) *DispatchListener {
+func NewDispatchListener(cfg *Config, prom prometheus.Registerer) *DispatchListener {
 	d := &DispatchListener{
 		Prometheus: prom,
 		Config:     cfg,
@@ -52,7 +52,7 @@ func NewDispatchListener(cfg *DispatchListenerConfig, prom prometheus.Registerer
 // DispatchListener starts new resource governer using the workspace dispatch
 type DispatchListener struct {
 	Prometheus prometheus.Registerer
-	Config     *DispatchListenerConfig
+	Config     *Config
 
 	governer map[cri.ContainerID]*Governer
 	mu       sync.Mutex

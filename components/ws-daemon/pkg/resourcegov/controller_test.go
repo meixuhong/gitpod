@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gitpod-io/gitpod/ws-manager-node/pkg/resourcegov"
+	"github.com/gitpod-io/gitpod/ws-daemon/pkg/resourcegov"
 	"github.com/google/go-cmp/cmp"
 )
 

@@ -21,6 +21,12 @@ const (
 	LabelDiskPressure = "gitpod.io/diskPressure"
 )
 
+// Config configures the disk guard
+type Config []struct {
+	Path          string `json:"path"`
+	MinBytesAvail uint64 `json:"minBytesAvail"`
+}
+
 // Guard regularly checks how much free space is left on a path/disk.
 // If the percentage of used space goes above a certain threshold,
 // we'll label the node accordingly - and remove the label once that condition

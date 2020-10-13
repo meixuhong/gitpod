@@ -39,7 +39,7 @@ import (
 
 // WorkspaceService implements the InitService and WorkspaceService
 type WorkspaceService struct {
-	config Configuration
+	config Config
 
 	store       *session.Store
 	stopService context.CancelFunc
@@ -48,23 +48,9 @@ type WorkspaceService struct {
 }
 
 // NewWorkspaceService creates a new workspce initialization service, starts housekeeping and the Prometheus integration
-func NewWorkspaceService(ctx context.Context, cfg Configuration) (res *WorkspaceService, err error) {
+func NewWorkspaceService(ctx context.Context, cfg Config, kubernetesNamespace string, cri cri.ContainerRuntimeInterface) (res *WorkspaceService, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "NewWorkspaceService")
 	defer tracing.FinishSpan(span, &err)
-
-	// connect to local container runtime
-	var cric cri.ContainerRuntimeInterface
-	if cfg.FullWorkspaceBackup.Enabled {
-		cric, err = cri.FromConfig(cfg.FullWorkspaceBackup.CRI)
-		if err != nil {
-			return nil, xerrors.Errorf("cannot connect to container runtime: %w", err)
-		}
-		go func() {
-			// TODO: handle this case more gracefully
-			err := <-cric.Error()
-			log.WithError(err).Fatal("container runtime interface error")
-		}()
-	}
 
 	// create working area
 	err = os.MkdirAll(cfg.WorkingArea, 0755)
@@ -73,7 +59,7 @@ func NewWorkspaceService(ctx context.Context, cfg Configuration) (res *Workspace
 	}
 
 	// read all session json files
-	store, err := session.NewStore(ctx, cfg.WorkingArea, workspaceLifecycleHooks(cfg))
+	store, err := session.NewStore(ctx, cfg.WorkingArea, workspaceLifecycleHooks(cfg, kubernetesNamespace))
 	if err != nil {
 		return nil, xerrors.Errorf("cannot create session store: %w", err)
 	}
@@ -87,7 +73,7 @@ func NewWorkspaceService(ctx context.Context, cfg Configuration) (res *Workspace
 		config:      cfg,
 		store:       store,
 		stopService: stopService,
-		cric:        cric,
+		cric:        cri,
 	}, nil
 }
 
@@ -723,7 +709,7 @@ func (c *cannotCancelContext) Value(key interface{}) interface{} {
 	return c.Delegate.Value(key)
 }
 
-func workspaceLifecycleHooks(cfg Configuration) map[session.WorkspaceState][]session.WorkspaceLivecycleHook {
+func workspaceLifecycleHooks(cfg Config, kubernetesNamespace string) map[session.WorkspaceState][]session.WorkspaceLivecycleHook {
 	var setupWorkspace session.WorkspaceLivecycleHook = func(ctx context.Context, ws *session.Workspace) error {
 		if _, ok := ws.NonPersistentAttrs[session.AttrRemoteStorage]; !ok {
 			remoteStorage, err := storage.NewDirectAccess(&cfg.Storage)
@@ -745,11 +731,11 @@ func workspaceLifecycleHooks(cfg Configuration) map[session.WorkspaceState][]ses
 		}
 
 		if _, ok := ws.NonPersistentAttrs[session.AttrLiveBackup]; ws.FullWorkspaceBackup && !ok {
-			lb, err := cfg.FullWorkspaceBackup.NewLiveBackup(ws.InstanceID, ws.UpperdirLocation)
-			if err != nil {
-				return xerrors.Errorf("cannot create live backup: %w", err)
+			ws.NonPersistentAttrs[session.AttrLiveBackup] = &safetynet.LiveWorkspaceBackup{
+				OWI:         log.OWI("", "", ws.InstanceID),
+				Location:    ws.UpperdirLocation,
+				Destination: filepath.Join(cfg.FullWorkspaceBackup.WorkDir, ws.InstanceID),
 			}
-			ws.NonPersistentAttrs[session.AttrLiveBackup] = lb
 		}
 
 		return nil
@@ -763,11 +749,11 @@ func workspaceLifecycleHooks(cfg Configuration) map[session.WorkspaceState][]ses
 		if lbr == nil || !ok {
 			log.WithFields(log.OWI(ws.Owner, ws.WorkspaceID, ws.InstanceID)).Warn("workspace is ready but did not have a live backup")
 
-			lbr, err = cfg.FullWorkspaceBackup.NewLiveBackup(ws.InstanceID, ws.UpperdirLocation)
-			if err != nil {
-				return xerrors.Errorf("cannot create live backup: %w", err)
+			ws.NonPersistentAttrs[session.AttrLiveBackup] = &safetynet.LiveWorkspaceBackup{
+				OWI:         log.OWI("", "", ws.InstanceID),
+				Location:    ws.UpperdirLocation,
+				Destination: filepath.Join(cfg.FullWorkspaceBackup.WorkDir, ws.InstanceID),
 			}
-			ws.NonPersistentAttrs[session.AttrLiveBackup] = lbr
 		}
 
 		lb, ok := lbr.(*safetynet.LiveWorkspaceBackup)
@@ -780,7 +766,7 @@ func workspaceLifecycleHooks(cfg Configuration) map[session.WorkspaceState][]ses
 
 	return map[session.WorkspaceState][]session.WorkspaceLivecycleHook{
 		session.WorkspaceInitializing: {setupWorkspace},
-		session.WorkspaceReady:        {setupWorkspace, startLiveBackup, serveWorkspace(cfg.KubernetesNamespace)},
+		session.WorkspaceReady:        {setupWorkspace, startLiveBackup, serveWorkspace(kubernetesNamespace)},
 		session.WorkspaceDisposing:    {stopServingWorkspace},
 	}
 }

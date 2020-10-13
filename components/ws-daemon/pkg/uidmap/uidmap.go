@@ -17,8 +17,8 @@ import (
 
 	wsk8s "github.com/gitpod-io/gitpod/common-go/kubernetes"
 	"github.com/gitpod-io/gitpod/common-go/log"
-	ndeapi "github.com/gitpod-io/gitpod/ws-manager-node/api"
-	"github.com/gitpod-io/gitpod/ws-manager-node/pkg/dispatch"
+	ndeapi "github.com/gitpod-io/gitpod/ws-daemon/api"
+	"github.com/gitpod-io/gitpod/ws-daemon/pkg/dispatch"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/sirupsen/logrus"
 
@@ -54,11 +54,11 @@ const (
 // Uidmapper provides UID mapping services for creating Linux user namespaces
 // from within a workspace.
 type Uidmapper struct {
-	Config UidmapperConfig
+	Config Config
 }
 
-// UidmapperConfig configures the UID mapper
-type UidmapperConfig struct {
+// Config configures the UID mapper
+type Config struct {
 	// ProcLocation is the location of the node's proc filesystem
 	ProcLocation string `json:"procLocation"`
 	// RootRange is the range to which one can map the root (uid 0) user/group to

@@ -5,18 +5,13 @@
 package syncd
 
 import (
-	"path/filepath"
-
-	"github.com/gitpod-io/gitpod/common-go/cri"
-	"github.com/gitpod-io/gitpod/common-go/log"
 	"github.com/gitpod-io/gitpod/common-go/util"
 	"github.com/gitpod-io/gitpod/content-service/pkg/storage"
 	"github.com/gitpod-io/gitpod/ws-daemon/pkg/quota"
-	"github.com/gitpod-io/gitpod/ws-daemon/pkg/safetynet"
 )
 
-// Configuration configures the workspace manager
-type Configuration struct {
+// Config configures the workspace content service
+type Config struct {
 	// WorkingArea is the location on-disk where we create workspaces
 	WorkingArea string `json:"workingArea"`
 
@@ -44,33 +39,10 @@ type Configuration struct {
 	} `json:"backup,omitempty"`
 
 	// FullWorkspaceBackup configures the FWB behaviour
-	FullWorkspaceBackup FullWorkspaceBackupConfig `json:"fullWorkspaceBackup,omitempty"`
+	FullWorkspaceBackup struct {
+		Enabled bool `json:"enabled"`
 
-	// KubernetesNamespace is the namespace this ws-daemon is deployed in
-	KubernetesNamespace string `json:"namespace"`
-}
-
-// FullWorkspaceBackupConfig configures the full workspace backup behaviour
-type FullWorkspaceBackupConfig struct {
-	Enabled bool `json:"enabled"`
-
-	// CRI configures ws-daemon's container runtime interface
-	CRI *cri.Config `json:"cri"`
-
-	// WorkDir is a directory located on the same disk as the upperdir of containers
-	WorkDir string `json:"workdir"`
-}
-
-// NewLiveBackup produces a new live backup
-func (fwbc *FullWorkspaceBackupConfig) NewLiveBackup(instanceID string, src string) (*safetynet.LiveWorkspaceBackup, error) {
-	if !fwbc.Enabled {
-		return nil, nil
-	}
-
-	res := &safetynet.LiveWorkspaceBackup{
-		OWI:         log.OWI("", "", instanceID),
-		Location:    src,
-		Destination: filepath.Join(fwbc.WorkDir, instanceID),
-	}
-	return res, nil
+		// WorkDir is a directory located on the same disk as the upperdir of containers
+		WorkDir string `json:"workdir"`
+	} `json:"fullWorkspaceBackup,omitempty"`
 }

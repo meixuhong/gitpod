@@ -102,7 +102,7 @@ function deserialize_wssync_WaitForInitResponse(buffer_arg) {
 
 var WorkspaceContentServiceService = exports.WorkspaceContentServiceService = {
   // initWorkspace intialises a new workspace folder in the working area
-  initWorkspace: {
+initWorkspace: {
     path: '/wssync.WorkspaceContentService/InitWorkspace',
     requestStream: false,
     responseStream: false,
@@ -114,9 +114,9 @@ var WorkspaceContentServiceService = exports.WorkspaceContentServiceService = {
     responseDeserialize: deserialize_wssync_InitWorkspaceResponse,
   },
   // WaitForInit waits until a workspace is fully initialized.
-  // If the workspace is already initialized, this function returns immediately.
-  // If there is no initialization is going on, an error is returned.
-  waitForInit: {
+// If the workspace is already initialized, this function returns immediately.
+// If there is no initialization is going on, an error is returned.
+waitForInit: {
     path: '/wssync.WorkspaceContentService/WaitForInit',
     requestStream: false,
     responseStream: false,
@@ -128,7 +128,7 @@ var WorkspaceContentServiceService = exports.WorkspaceContentServiceService = {
     responseDeserialize: deserialize_wssync_WaitForInitResponse,
   },
   // TakeSnapshot creates a backup/snapshot of a workspace
-  takeSnapshot: {
+takeSnapshot: {
     path: '/wssync.WorkspaceContentService/TakeSnapshot',
     requestStream: false,
     responseStream: false,
@@ -140,7 +140,7 @@ var WorkspaceContentServiceService = exports.WorkspaceContentServiceService = {
     responseDeserialize: deserialize_wssync_TakeSnapshotResponse,
   },
   // disposeWorkspace cleans up a workspace, possibly after taking a final backup
-  disposeWorkspace: {
+disposeWorkspace: {
     path: '/wssync.WorkspaceContentService/DisposeWorkspace',
     requestStream: false,
     responseStream: false,
